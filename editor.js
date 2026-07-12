@@ -1,11 +1,21 @@
+// --- Block Catalog (Moved here for better performance on older devices) ---
+const BLOXD_BLOCKS = [
+    { id: 0, name: "Air (Eraser)", color: "#ffffff", class: "cell-air" },
+    { id: 1, name: "Grass Block", color: "#55b655", class: "cell-grass" },
+    { id: 2, name: "Stone Block", color: "#888888", class: "cell-stone" },
+    { id: 3, name: "Dirt Block", color: "#8b5a2b", class: "cell-dirt" },
+    { id: 4, name: "Wood Log", color: "#a0522d", class: "cell-wood" },
+    { id: 5, name: "Leaves Block", color: "#2e8b57", class: "cell-leaves" },
+    { id: 6, name: "Red Brick", color: "#b22222", class: "cell-brick" },
+    { id: 7, name: "Sand Block", color: "#f4a460", class: "cell-sand" }
+];
+
 // --- Application State ---
 const MAP_SIZE = 32;
-let currentLayer = 0; // Current Y elevation (0 to 31)
-let selectedBlockId = 1; // Default selected block: Grass
+let currentLayer = 0; 
+let selectedBlockId = 1; 
 let isDrawing = false;
 
-// 3D Matrix initialized with 0 (Air blocks)
-// Structure: grid[y][z][x]
 let grid3D = Array(MAP_SIZE).fill(null).map(() => 
     Array(MAP_SIZE).fill(null).map(() => 
         Array(MAP_SIZE).fill(0)
@@ -30,7 +40,8 @@ function initEditor() {
     }
     layerSelect.value = currentLayer;
 
-    // 2. Render Sidebar Blocks from blocks.js Catalog
+    // 2. Render Sidebar Blocks
+    blockListContainer.innerHTML = ""; // Clear old view
     BLOXD_BLOCKS.forEach(block => {
         const btn = document.createElement("div");
         btn.className = `block-item ${block.id === selectedBlockId ? 'selected' : ''}`;
@@ -46,6 +57,7 @@ function initEditor() {
 
     // 3. Configure Grid Columns
     gridContainer.style.gridTemplateColumns = `repeat(${MAP_SIZE}, 1fr)`;
+    gridContainer.innerHTML = ""; // Clear old cells
 
     // 4. Generate Interactive Cells for 2D Canvas View
     for (let z = 0; z < MAP_SIZE; z++) {
@@ -55,7 +67,6 @@ function initEditor() {
             cell.dataset.x = x;
             cell.dataset.z = z;
 
-            // Mouse interaction handlers
             cell.addEventListener("mousedown", (e) => {
                 isDrawing = true;
                 drawAtCell(cell);
@@ -69,9 +80,7 @@ function initEditor() {
         }
     }
 
-    // Global listener to stop painting when mouse is released
     window.addEventListener("mouseup", () => { isDrawing = false; });
-
     updateGridDisplay();
 }
 
@@ -80,17 +89,17 @@ function drawAtCell(cell) {
     const x = parseInt(cell.dataset.x);
     const z = parseInt(cell.dataset.z);
     
-    // Save block type into the 3D matrix
     grid3D[currentLayer][z][x] = selectedBlockId;
     
-    // Update visual color instantly
     const activeBlock = BLOXD_BLOCKS.find(b => b.id === selectedBlockId);
     cell.style.backgroundColor = activeBlock ? activeBlock.color : "#ffffff";
 }
 
-// --- Refresh Grid View when shifting layers ---
+// --- Refresh Grid View ---
 function updateGridDisplay() {
     const cells = gridContainer.children;
+    if (cells.length === 0) return;
+    
     let index = 0;
     for (let z = 0; z < MAP_SIZE; z++) {
         for (let x = 0; x < MAP_SIZE; x++) {
@@ -102,35 +111,27 @@ function updateGridDisplay() {
     }
 }
 
-// Layer change trigger
 layerSelect.addEventListener("change", (e) => {
     currentLayer = parseInt(e.target.value);
     updateGridDisplay();
 });
 
-// --- Export Functionality (.bloxdschem hybrid file generator) ---
+// --- Export Functionality ---
 exportBtn.addEventListener("click", () => {
-    // Generate text structure matching the format extracted from allblocks.bloxdschem
     const schematicTemplate = {
         schematicName: "allblocks",
         version: "4",
         format: "V",
         data: {
-            persisted: {
-                books: []
-            },
-            gridPayload: grid3D // Embed our designed blocks layout
+            persisted: { books: [] },
+            gridPayload: grid3D 
         }
     };
 
-    // Serialize object to JSON string format
     const jsonString = JSON.stringify(schematicTemplate);
-    
-    // Format payload matching game header standard
     const fileHeader = "allblocks <><4, &V";
-    const completePayload = fileHeader + jsonString + '" &4{"persisted":{"books":[]}} ';
+    const completePayload = fileHeader + jsonString + " &4{\"persisted\":{\"books\":[]}}";
 
-    // Download pipeline trigger
     const blob = new Blob([completePayload], { type: "application/octet-stream" });
     const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
