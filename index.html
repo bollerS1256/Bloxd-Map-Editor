@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Bloxd.io Hybrid Map Editor v12</title>
+    <title>Bloxd.io Performance Optimized Editor v13</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
     
@@ -10,61 +10,84 @@
         body { font-family: sans-serif; background-color: #121212; color: #fff; margin: 0; padding: 0; overflow: hidden; display: flex; flex-direction: column; height: 100vh; user-select: none; }
         header { background: #1a1a1a; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #2a2a2a; height: 60px; box-sizing: border-box; }
         h1 { margin: 0; font-size: 18px; color: #00adb5; }
+        .nav-controls { display: flex; gap: 15px; align-items: center; }
+        
         .main-container { display: flex; flex: 1; height: calc(100vh - 60px); width: 100%; }
-        .sidebar { width: 300px; background: #1e1e1e; border-right: 2px solid #2a2a2a; padding: 15px; box-sizing: border-box; display: flex; flex-direction: column; gap: 15px; overflow-y: auto; }
-        .sidebar-title { font-size: 13px; font-weight: bold; color: #00adb5; border-bottom: 1px solid #333; padding-bottom: 5px; }
-        .control-group { display: flex; flex-direction: column; gap: 5px; }
-        label { font-size: 11px; color: #aaa; display: flex; justify-content: space-between; }
+        
+        /* Expanded Sidebar for clear visibility with Scrollbar */
+        .sidebar { width: 380px; min-width: 350px; background: #1e1e1e; border-right: 2px solid #2a2a2a; padding: 20px; box-sizing: border-box; display: flex; flex-direction: column; gap: 20px; overflow-y: auto; height: 100%; }
+        .sidebar-title { font-size: 14px; font-weight: bold; color: #00adb5; border-bottom: 1px solid #333; padding-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; }
+        
+        .control-group { display: flex; flex-direction: column; gap: 8px; }
+        label { font-size: 12px; color: #aaa; display: flex; justify-content: space-between; }
         input[type="range"] { padding: 0; background: #333; height: 6px; border-radius: 3px; outline: none; width: 100%; }
+        
+        /* Dynamic view switching buttons */
+        .btn-view-toggle { background: #00adb5; border: none; font-weight: bold; cursor: pointer; padding: 10px 18px; border-radius: 4px; color: white; font-size: 13px; transition: background 0.2s; }
+        .btn-view-toggle:hover { background: #008c95; }
         button.btn-primary { background: #28a745; border: none; font-weight: bold; cursor: pointer; padding: 10px 20px; border-radius: 4px; color: white; font-size: 14px; }
         button.btn-primary:hover { background: #218838; }
-        .block-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(80px, 1fr)); gap: 6px; max-height: 200px; overflow-y: auto; border: 1px solid #333; padding: 5px; background: #151515; border-radius: 4px; }
-        .block-item { padding: 8px 5px; text-align: center; background: #252525; border: 1px solid #444; border-radius: 4px; cursor: pointer; font-size: 11px; }
-        .block-item.active { border-color: #00adb5; background: #00adb533; font-weight: bold; }
-        .workspace { flex: 1; display: flex; background: #050505; }
-        .view-panel { flex: 1; display: flex; flex-direction: column; position: relative; border-left: 1px solid #2a2a2a; }
-        .panel-label { background: #151515; padding: 6px 12px; font-size: 12px; font-weight: bold; border-bottom: 1px solid #2a2a2a; color: #00adb5; }
-        #canvas-container { flex: 1; display: flex; justify-content: center; align-items: center; overflow: auto; background: #0e0e10; }
-        #editor-canvas { background: #151515; box-shadow: 0 0 20px rgba(0,0,0,0.7); cursor: crosshair; }
-        #three-container { flex: 1; position: relative; }
-        .instructions { position: absolute; bottom: 10px; right: 10px; left: 10px; background: rgba(0,0,0,0.85); padding: 12px; border-radius: 6px; font-size: 11px; pointer-events: none; line-height: 1.6; border: 1px solid #333; z-index: 10; }
+        
+        /* Clean grid blocks list inside sidebar */
+        .block-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 8px; padding: 5px; background: #151515; border-radius: 4px; border: 1px solid #333; }
+        .block-item { padding: 12px 8px; text-align: center; background: #252525; border: 1px solid #444; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: 500; transition: all 0.15s; }
+        .block-item.active { border-color: #00adb5; background: #00adb533; font-weight: bold; box-shadow: 0 0 5px rgba(0, 173, 181, 0.4); }
+        
+        .workspace { flex: 1; display: flex; background: #050505; position: relative; height: 100%; }
+        
+        /* Single viewport canvas layout to optimize framerates */
+        .view-panel { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: none; flex-direction: column; }
+        .view-panel.active { display: flex; }
+        .panel-label { background: #151515; padding: 8px 15px; font-size: 12px; font-weight: bold; border-bottom: 1px solid #2a2a2a; color: #00adb5; }
+        
+        #canvas-container { flex: 1; display: flex; justify-content: center; align-items: center; overflow: hidden; background: #0e0e10; position: relative; }
+        #editor-canvas { background: #151515; box-shadow: 0 0 25px rgba(0,0,0,0.8); position: absolute; transform-origin: center center; cursor: grab; }
+        #editor-canvas:active { cursor: grabbing; }
+        
+        #three-container { flex: 1; position: relative; width: 100%; height: 100%; }
+        
+        .instructions { position: absolute; bottom: 15px; right: 15px; left: 15px; background: rgba(0,0,0,0.85); padding: 12px; border-radius: 6px; font-size: 11px; pointer-events: none; line-height: 1.6; border: 1px solid #333; z-index: 10; }
     </style>
 </head>
 <body>
 
     <header>
-        <h1>Bloxd.io Hybrid Schematic Editor (32x32)</h1>
-        <button class="btn-primary" id="export-btn">Export .bloxdschem</button>
+        <h1>Bloxd.io Advanced Map Builder</h1>
+        <div class="nav-controls">
+            <button class="btn-view-toggle" id="toggle-view-btn" onclick="switchEditorMode()">Switch to 3D View</button>
+            <button class="btn-primary" id="export-btn">Export .bloxdschem</button>
+        </div>
     </header>
 
     <div class="main-container">
         <div class="sidebar">
-            <div class="sidebar-title">Layer Control (Y Elevation)</div>
+            <div class="sidebar-title">Elevation Axis (Y Layer)</div>
             <div class="control-group">
-                <label>Current Layer Y: <span id="current-layer-val">0</span></label>
+                <label>Active Height Y: <span id="current-layer-val">0</span></label>
                 <input type="range" id="current-layer" min="0" max="31" value="0">
             </div>
 
-            <div class="sidebar-title">Select Active Block</div>
+            <div class="sidebar-title">Material Palette</div>
             <div class="block-list" id="block-selector"></div>
             
-            <div class="sidebar-title">Info</div>
-            <div id="stats" style="font-size: 12px; color: #888;">Coordinates: X: 0, Z: 0</div>
+            <div class="sidebar-title">Telemetry & Matrix Details</div>
+            <div id="stats" style="font-size: 12px; color: #aaa; line-height: 1.5;">Coordinates: X: 0, Z: 0</div>
         </div>
 
         <div class="workspace">
-            <div class="view-panel">
-                <div class="panel-label">2D Grid Paint Canvas</div>
+            <div class="view-panel active" id="panel-2d">
+                <div class="panel-label">2D PLAN VIEW EDITOR (Scroll Wheel to Zoom, Right-Click & Drag to Pan)</div>
                 <div id="canvas-container">
-                    <canvas id="editor-canvas" width="512" height="512"></canvas>
+                    <canvas id="editor-canvas" width="640" height="640"></canvas>
                 </div>
             </div>
             
-            <div class="view-panel" id="three-container">
-                <div class="panel-label">3D Real-time Live View</div>
+            <div class="view-panel" id="panel-3d">
+                <div class="panel-label">3D INTERACTIVE EDITOR (Left-Click to Place, Space+Click to Rotate View)</div>
+                <div id="three-container"></div>
                 <div class="instructions">
-                    • Left Click & Drag on 2D Grid to Draw.<br>
-                    • Use Mouse on 3D View to rotate/zoom around your build.
+                    • <b>3D Drawing Mode:</b> Left-Click on blocks or the base grid to build. <br>
+                    • <b>Camera Pan/Orbit:</b> Hold <b>Spacebar</b> and drag with Left-Click to look around, or use Scroll wheel to zoom.
                 </div>
             </div>
         </div>
