@@ -13,9 +13,9 @@ const BLOXD_BLOCKS = [
 const MAP_SIZE = 32;
 let currentLayerY = 0;
 let selectedBlockId = 1;
-let activeMode = "2D"; // Alternates between "2D" and "3D"
+let activeMode = "2D"; 
 
-// 3D Core Structural Matrix
+// 3D Matrix payload structure
 let grid3D = Array(MAP_SIZE).fill(null).map(() => 
     Array(MAP_SIZE).fill(null).map(() => 
         Array(MAP_SIZE).fill(0)
@@ -37,33 +37,26 @@ const panel2D = document.getElementById('panel-2d');
 const panel3D = document.getElementById('panel-3d');
 const threeContainer = document.getElementById('three-container');
 
-// --- 2D Navigation State (Zoom & Pan) ---
-let zoom = 1;
-let panX = 0;
-let panY = 0;
+// --- 2D Navigation Engine ---
+let scale = 1;
+let offsetX = 0;
+let offsetY = 0;
 let isPanning = false;
-let startPanX = 0;
-let startPanY = 0;
+let startX = 0;
+let startY = 0;
 let isDrawing2D = false;
 
-// Automatically scale canvas layout to fit fully on initial launch
-function init2DViewportDimensions() {
-    const containerW = canvasContainer.clientWidth;
-    const containerH = canvasContainer.clientHeight;
-    const padding = 40;
-    
-    const scale = Math.min((containerW - padding) / canvas.width, (containerH - padding) / canvas.height);
-    zoom = scale;
-    panX = (containerW - canvas.width * zoom) / 2;
-    panY = (containerH - canvas.height * zoom) / 2;
-    apply2DTransformations();
+// Set default auto-fit view matrix configurations
+function reset2DView() {
+    const cw = canvasContainer.clientWidth || 600;
+    const ch = canvasContainer.clientHeight || 600;
+    scale = Math.min((cw - 40) / canvas.width, (ch - 40) / canvas.height);
+    offsetX = (cw - canvas.width * scale) / 2;
+    offsetX = (ch - canvas.height * scale) / 2;
+    draw2DGrid();
 }
 
-function apply2DTransformations() {
-    canvas.style.transform = `translate(${panX}px, ${panY}px) scale(${zoom})`;
-}
-
-// --- Render Sidebar Catalog ---
+// --- Render Sidebar Catalog Items ---
 BLOXD_BLOCKS.forEach(block => {
     const item = document.createElement('div');
     item.className = `block-item ${block.id === selectedBlockId ? 'active' : ''}`;
@@ -77,7 +70,7 @@ BLOXD_BLOCKS.forEach(block => {
     selectorEl.appendChild(item);
 });
 
-// --- Setup Three.js 3D Viewport & Simulation Engine ---
+// --- Setup Three.js 3D Viewport Engine ---
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x0a0a0c);
 
@@ -95,7 +88,6 @@ const dirLight = new THREE.DirectionalLight(0xffffff, 0.4);
 dirLight.position.set(MAP_SIZE, MAP_SIZE * 2, MAP_SIZE);
 scene.add(dirLight);
 
-// Interactive Plane targeting 3D drawing physics
 const baseGridGeo = new THREE.GridHelper(MAP_SIZE, MAP_SIZE, 0x00adb5, 0x333333);
 baseGridGeo.position.set(MAP_SIZE/2 - 0.5, -0.5, MAP_SIZE/2 - 0.5);
 scene.add(baseGridGeo);
@@ -110,7 +102,7 @@ const geometry = new THREE.BoxGeometry(0.98, 0.98, 0.98);
 let voxelMeshes = {};
 let interactiveTargetsList = [invisiblePlane];
 
-function setBlockState(x, y, z, blockId, update2D = true) {
+function setBlockState(x, y, z, blockId, refresh2D = true) {
     if(x < 0 || x >= MAP_SIZE || y < 0 || y >= MAP_SIZE || z < 0 || z >= MAP_SIZE) return;
     
     const key = `${x},${y},${z}`;
@@ -133,14 +125,18 @@ function setBlockState(x, y, z, blockId, update2D = true) {
         interactiveTargetsList.push(mesh);
     }
     
-    if (update2D && activeMode === "2D") render2DGrid();
+    if (refresh2D && activeMode === "2D") draw2DGrid();
 }
 
-// --- 2D Painting Loop ---
+// --- Dynamic Canvas Render Loop (Pan/Zoom Compliant) ---
 const cellSize = canvas.width / MAP_SIZE;
-function render2DGrid() {
+function draw2DGrid() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     
+    ctx.save();
+    ctx.translate(offsetX, offsetY);
+    ctx.scale(scale, scale);
+
     for (let x = 0; x < MAP_SIZE; x++) {
         for (let z = 0; z < MAP_SIZE; z++) {
             const blockId = grid3D[currentLayerY][z][x];
@@ -152,15 +148,18 @@ function render2DGrid() {
         }
     }
 
+    // Grid wireframes
     ctx.strokeStyle = "#222225";
     ctx.lineWidth = 0.5;
     for (let i = 0; i <= MAP_SIZE; i++) {
         ctx.beginPath(); ctx.moveTo(i * cellSize, 0); ctx.lineTo(i * cellSize, canvas.height); ctx.stroke();
         ctx.beginPath(); ctx.moveTo(0, i * cellSize); ctx.lineTo(canvas.width, i * cellSize); ctx.stroke();
     }
+    
+    ctx.restore();
 }
 
-// --- View Switching Controller ---
+// --- View State Changer ---
 function switchEditorMode() {
     if (activeMode === "2D") {
         activeMode = "3D";
@@ -173,35 +172,42 @@ function switchEditorMode() {
         panel3D.classList.remove('active');
         panel2D.classList.add('active');
         toggleViewBtn.innerText = "Switch to 3D View";
-        render2DGrid();
-        setTimeout(init2DViewportDimensions, 20);
+        setTimeout(reset2DView, 30);
     }
 }
 
 function trigger3DResize() {
-    const w = threeContainer.clientWidth;
-    const h = threeContainer.clientHeight;
+    const w = threeContainer.clientWidth || 600;
+    const h = threeContainer.clientHeight || 600;
     camera.aspect = w / h;
     camera.updateProjectionMatrix();
     renderer.setSize(w, h);
 }
 
-// --- 2D Interactive Actions (Zoom/Pan/Paint) ---
+// --- 2D Interactive Mouse Calculations ---
 canvasContainer.addEventListener('wheel', (e) => {
     e.preventDefault();
     const zoomFactor = 1.1;
-    if (e.deltaY < 0) zoom *= zoomFactor;
-    else zoom /= zoomFactor;
-    zoom = Math.max(0.2, Math.min(zoom, 15));
-    apply2DTransformations();
+    const mouseX = e.clientX - canvasContainer.getBoundingClientRect().left;
+    const mouseY = e.clientY - canvasContainer.getBoundingClientRect().top;
+    
+    // Zoom relative to current pointer location
+    const wheelData = e.deltaY < 0 ? zoomFactor : 1 / zoomFactor;
+    
+    offsetX = mouseX - (mouseX - offsetX) * wheelData;
+    offsetY = mouseY - (mouseY - offsetY) * wheelData;
+    scale *= wheelData;
+    scale = Math.max(0.1, Math.min(scale, 20));
+    
+    draw2DGrid();
 }, { passive: false });
 
 canvasContainer.addEventListener('mousedown', (e) => {
-    if (e.button === 2) { // Right Click for Panning
+    if (e.button === 2) { 
         isPanning = true;
-        startPanX = e.clientX - panX;
-        startPanY = e.clientY - panY;
-    } else if (e.button === 0) { // Left Click for Drawing
+        startX = e.clientX - offsetX;
+        startY = e.clientY - offsetY;
+    } else if (e.button === 0) { 
         isDrawing2D = true;
         process2DDrawCoords(e);
     }
@@ -209,9 +215,9 @@ canvasContainer.addEventListener('mousedown', (e) => {
 
 canvasContainer.addEventListener('mousemove', (e) => {
     if (isPanning) {
-        panX = e.clientX - startPanX;
-        panY = e.clientY - startPanY;
-        apply2DTransformations();
+        offsetX = e.clientX - startX;
+        offsetY = e.clientY - startY;
+        draw2DGrid();
     } else if (isDrawing2D) {
         process2DDrawCoords(e);
     }
@@ -221,17 +227,23 @@ window.addEventListener('mouseup', () => { isPanning = false; isDrawing2D = fals
 canvasContainer.addEventListener('contextmenu', e => e.preventDefault());
 
 function process2DDrawCoords(e) {
-    const rect = canvas.getBoundingClientRect();
-    const x = Math.floor((e.clientX - rect.left) / (cellSize * zoom));
-    const z = Math.floor((e.clientY - rect.top) / (cellSize * zoom));
+    const rect = canvasContainer.getBoundingClientRect();
+    const mx = e.clientX - rect.left;
+    const my = e.clientY - rect.top;
     
-    if (x >= 0 && x < MAP_SIZE && z >= 0 && z < MAP_SIZE) {
-        statsDisplay.innerHTML = `Coordinates: X: ${x}, Z: ${z}<br>Active Layer Y: ${currentLayerY}`;
-        setBlockState(x, currentLayerY, z, selectedBlockId, true);
+    const canvasX = (mx - offsetX) / scale;
+    const canvasZ = (my - offsetY) / scale;
+    
+    const cellX = Math.floor(canvasX / cellSize);
+    const cellZ = Math.floor(canvasZ / cellSize);
+    
+    if (cellX >= 0 && cellX < MAP_SIZE && cellZ >= 0 && cellZ < MAP_SIZE) {
+        statsDisplay.innerHTML = `Coordinates: X: ${cellX}, Z: ${cellZ}<br>Active Layer Y: ${currentLayerY}`;
+        setBlockState(cellX, currentLayerY, cellZ, selectedBlockId, true);
     }
 }
 
-// --- 3D Interactive Vector Editor Engine ---
+// --- 3D Interactive Raycasting Physics ---
 const raycaster = new THREE.Raycaster();
 const mouseVector = new THREE.Vector2();
 let spacebarPressed = false;
@@ -252,18 +264,17 @@ threeContainer.addEventListener('mousedown', (e) => {
     if (intersects.length > 0) {
         const intersect = intersects[0];
         
-        if (selectedBlockId === 0) { // Eraser behavior
+        if (selectedBlockId === 0) { 
             if (intersect.object !== invisiblePlane) {
                 const coords = intersect.object.gridCoords;
                 setBlockState(coords.x, coords.y, coords.z, 0, false);
             }
-        } else { // Draw/Build block behavior
+        } else { 
             const normal = intersect.face.normal;
             let targetX = Math.floor(intersect.point.x + normal.x * 0.5 + 0.5);
             let targetY = Math.floor(intersect.point.y + normal.y * 0.5 + 0.5);
             let targetZ = Math.floor(intersect.point.z + normal.z * 0.5 + 0.5);
             
-            // Adjust vector bounding rules
             if (intersect.object === invisiblePlane) {
                 targetX = Math.floor(intersect.point.x + 0.5);
                 targetZ = Math.floor(intersect.point.z + 0.5);
@@ -275,11 +286,11 @@ threeContainer.addEventListener('mousedown', (e) => {
     }
 });
 
-// --- UI Sync Adjustments ---
+// --- UI Configurations ---
 layerSlider.addEventListener('input', (e) => {
     currentLayerY = parseInt(e.target.value);
     layerValDisplay.innerText = currentLayerY;
-    if (activeMode === "2D") render2DGrid();
+    if (activeMode === "2D") draw2DGrid();
 });
 
 exportBtn.addEventListener("click", () => {
@@ -297,17 +308,19 @@ exportBtn.addEventListener("click", () => {
     link.click();
 });
 
-// --- Dynamic Frames Render Pipe ---
 function animate() {
     requestAnimationFrame(animate);
     if (activeMode === "3D") {
-        controls.enabled = spacebarPressed; // Lock camera control rotation unless Spacebar is held down
+        controls.enabled = spacebarPressed; 
         controls.update();
         renderer.render(scene, camera);
     }
 }
 
-// Start sequence runtime setup
+// Global initialization triggers
 animate();
-setTimeout(init2DViewportDimensions, 100);
-window.addEventListener('resize', () => { if (activeMode === "3D") trigger3DResize(); });
+setTimeout(reset2DView, 150);
+window.addEventListener('resize', () => { 
+    if (activeMode === "3D") trigger3DResize(); 
+    else reset2DView();
+});
