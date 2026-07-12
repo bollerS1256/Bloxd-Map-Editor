@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bloxd Schematic Editor | محرر خرائط بلوكسد</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <div id="app-container">
+        <header>
+            <h1>محرر سكيماتيك Bloxd.io</h1>
+            <div class="actions">
+                <button id="export-btn" class="primary-btn">تصدير الملف (.bloxdschem)</button>
+            </div>
+        </header>
+
+        <div class="main-layout">
+            <aside class="sidebar">
+                <h3>كتالوج البلوكات</h3>
+                <div id="block-list" class="block-grid">
+                    </div>
+            </aside>
+
+            <main class="editor-area">
+                <div class="controls-row">
+                    <label for="layer-select">الطبقة (الارتفاع Y): </label>
+                    <select id="layer-select">
+                        </select>
+                    <span id="coord-display">الإحداثيات: X: 0, Z: 0</span>
+                </div>
+                
+                <div id="grid-container"></div>
+            </main>
+        </div>
+    </div>
+
+    <script src="blocks.js"></script>
+    <script src="editor.js"></script>
+</body>
+</html>
