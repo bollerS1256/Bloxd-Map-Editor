@@ -1,669 +1,75 @@
 <!DOCTYPE html>
-<html lang="ar" dir="rtl">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Bloxd Map Editor</title>
+    <title>Bloxd.io Hybrid Map Editor v12</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #121212; color: #fff; margin: 0; padding: 0; overflow: hidden; display: flex; flex-direction: column; height: 100vh; user-select: none; }
+        body { font-family: sans-serif; background-color: #121212; color: #fff; margin: 0; padding: 0; overflow: hidden; display: flex; flex-direction: column; height: 100vh; user-select: none; }
         header { background: #1a1a1a; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #2a2a2a; height: 60px; box-sizing: border-box; }
         h1 { margin: 0; font-size: 18px; color: #00adb5; }
-        .header-buttons { display: flex; gap: 10px; }
-        
         .main-container { display: flex; flex: 1; height: calc(100vh - 60px); width: 100%; }
-        
-        .sidebar { width: 320px; background: #1e1e1e; border-left: 2px solid #2a2a2a; padding: 15px; box-sizing: border-box; display: flex; flex-direction: column; gap: 15px; overflow-y: auto; }
-        .sidebar-title { font-size: 13px; font-weight: bold; color: #00adb5; border-bottom: 1px solid #333; padding-bottom: 5px; margin-top: 5px; }
-        
-        .tools-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
-        .tool-btn { background: #2d2d2d; border: 1px solid #444; color: #fff; padding: 10px; border-radius: 6px; cursor: pointer; font-family: inherit; font-size: 12px; display: flex; align-items: center; justify-content: center; gap: 6px; transition: all 0.2s; }
-        .tool-btn:hover { background: #3d3d3d; border-color: #555; }
-        .tool-btn.active { background: #00adb5; border-color: #00fff6; font-weight: bold; }
-        
-        .history-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
-        .hist-btn { background: #252525; border: 1px solid #3c3c3c; color: #aaa; padding: 8px; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: bold; }
-        .hist-btn:hover:not(:disabled) { background: #333; color: #fff; }
-        .hist-btn:disabled { opacity: 0.3; cursor: not-allowed; }
-
+        .sidebar { width: 300px; background: #1e1e1e; border-right: 2px solid #2a2a2a; padding: 15px; box-sizing: border-box; display: flex; flex-direction: column; gap: 15px; overflow-y: auto; }
+        .sidebar-title { font-size: 13px; font-weight: bold; color: #00adb5; border-bottom: 1px solid #333; padding-bottom: 5px; }
         .control-group { display: flex; flex-direction: column; gap: 5px; }
         label { font-size: 11px; color: #aaa; display: flex; justify-content: space-between; }
         input[type="range"] { padding: 0; background: #333; height: 6px; border-radius: 3px; outline: none; width: 100%; }
-        
-        button.btn-primary { background: #00adb5; border: none; font-weight: bold; cursor: pointer; transition: background 0.2s; padding: 8px 15px; border-radius: 4px; color: white; }
-        button.btn-primary:hover { background: #008c95; }
-        button.btn-secondary { background: #333; border: 1px solid #555; font-weight: bold; cursor: pointer; padding: 8px 15px; border-radius: 4px; color: white; }
-        button.btn-secondary:hover { background: #444; }
-        
-        .block-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(70px, 1fr)); gap: 6px; max-height: 140px; overflow-y: auto; border: 1px solid #333; padding: 5px; background: #151515; border-radius: 4px; }
-        .block-item { padding: 5px; text-align: center; background: #252525; border: 1px solid #444; border-radius: 4px; cursor: pointer; font-size: 10px; word-break: break-word; }
-        .block-item.active { border-color: #00adb5; background: #00adb533; }
-        
-        /* مساحة العمل المقسمة */
+        button.btn-primary { background: #28a745; border: none; font-weight: bold; cursor: pointer; padding: 10px 20px; border-radius: 4px; color: white; font-size: 14px; }
+        button.btn-primary:hover { background: #218838; }
+        .block-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(80px, 1fr)); gap: 6px; max-height: 200px; overflow-y: auto; border: 1px solid #333; padding: 5px; background: #151515; border-radius: 4px; }
+        .block-item { padding: 8px 5px; text-align: center; background: #252525; border: 1px solid #444; border-radius: 4px; cursor: pointer; font-size: 11px; }
+        .block-item.active { border-color: #00adb5; background: #00adb533; font-weight: bold; }
         .workspace { flex: 1; display: flex; background: #050505; }
-        .view-panel { flex: 1; display: flex; flex-direction: column; position: relative; border-right: 1px solid #2a2a2a; }
+        .view-panel { flex: 1; display: flex; flex-direction: column; position: relative; border-left: 1px solid #2a2a2a; }
         .panel-label { background: #151515; padding: 6px 12px; font-size: 12px; font-weight: bold; border-bottom: 1px solid #2a2a2a; color: #00adb5; }
-        
         #canvas-container { flex: 1; display: flex; justify-content: center; align-items: center; overflow: auto; background: #0e0e10; }
         #editor-canvas { background: #151515; box-shadow: 0 0 20px rgba(0,0,0,0.7); cursor: crosshair; }
         #three-container { flex: 1; position: relative; }
-        
         .instructions { position: absolute; bottom: 10px; right: 10px; left: 10px; background: rgba(0,0,0,0.85); padding: 12px; border-radius: 6px; font-size: 11px; pointer-events: none; line-height: 1.6; border: 1px solid #333; z-index: 10; }
-        #file-input { display: none; }
     </style>
 </head>
 <body>
 
     <header>
-        <h1>Bloxd Map Editor</h1>
-        <div class="header-buttons">
-            <button class="btn-secondary" onclick="document.getElementById('file-input').click()">📥 استيراد .bloxdschem</button>
-            <input type="file" id="file-input" accept=".bloxdschem" onchange="importSchematic(event)">
-            <button class="btn-primary" onclick="exportSchematic()">📤 Export as .bloxdschem</button>
-        </div>
+        <h1>Bloxd.io Hybrid Schematic Editor (32x32)</h1>
+        <button class="btn-primary" id="export-btn">Export .bloxdschem</button>
     </header>
 
     <div class="main-container">
         <div class="sidebar">
-            <div class="sidebar-title">Undo / Redo</div>
-            <div class="history-grid">
-                <button class="hist-btn" id="btn-undo" onclick="undo()" disabled>↩️ تراجع</button>
-                <button class="hist-btn" id="btn-redo" onclick="redo()" disabled>↪️ إعادة</button>
-            </div>
-
-            <div class="sidebar-title">Layer customization (Y)</div>
+            <div class="sidebar-title">Layer Control (Y Elevation)</div>
             <div class="control-group">
-                <label>Y Level (Y): <span id="current-layer-val">10</span></label>
-                <input type="range" id="current-layer" min="0" max="49" value="10" oninput="changeLayer(this.value)">
+                <label>Current Layer Y: <span id="current-layer-val">0</span></label>
+                <input type="range" id="current-layer" min="0" max="31" value="0">
             </div>
 
-            <div class="sidebar-title">Editor Tools</div>
-            <div class="tools-grid">
-                <button class="tool-btn active" id="tool-manual" onclick="selectTool('manual')">🧱⛏️ رسم / حذف</button>
-                <button class="tool-btn" id="tool-raise" onclick="selectTool('raise')">🔼 Lift Up</button>
-                <button class="tool-btn" id="tool-lower" onclick="selectTool('lower')">🔽 Lower Down</button>
-                <button class="tool-btn" id="tool-flatten" onclick="selectTool('flatten')">🌅 Flatten</button>
-            </div>
-
-            <div id="brush-settings" style="display: none; flex-direction: column; gap: 10px; background: #151515; padding: 10px; border-radius: 6px;">
-                <div class="control-group">
-                    <label>Brush Size: <span id="brush-size-val">2</span></label>
-                    <input type="range" id="brush-size" min="1" max="10" value="2" oninput="document.getElementById('brush-size-val').innerText=this.value">
-                </div>
-                <div class="control-group">
-                    <label>Density: <span id="brush-intensity-val">1</span></label>
-                    <input type="range" id="brush-intensity" min="1" max="5" value="1" oninput="document.getElementById('brush-intensity-val').innerText=this.value">
-                </div>
-                <div class="control-group" id="flatten-height-group" style="display:none;">
-                    <label>Flatting Y Level: <span id="flatten-height-val">10</span></label>
-                    <input type="range" id="flatten-height" min="0" max="49" value="10" oninput="document.getElementById('flatten-height-val').innerText=this.value">
-                </div>
-            </div>
-
-            <div class="sidebar-title">اختيار الكتلة النشطة</div>
+            <div class="sidebar-title">Select Active Block</div>
             <div class="block-list" id="block-selector"></div>
-
-            <div class="sidebar-title">التحكم السريع بالتضاريس</div>
-            <button onclick="generateBeautifulTerrain()" style="background:#2d2d2d; border:1px solid #444; color:white; padding:8px; border-radius:4px; cursor:pointer;">🔄 إعادة توليد تضاريس طبيعية</button>
-            <button onclick="clearMapWithHistory()" style="background:#4a1d1d; border:1px solid #632222; color:white; padding:8px; border-radius:4px; cursor:pointer; margin-top:5px;">🗑️ مسح الخريطة كاملة</button>
             
-            <div class="sidebar-title">الإحصائيات</div>
-            <div id="stats" style="font-size: 11px; color: #888;">عدد الكتل الحالية: 0</div>
+            <div class="sidebar-title">Info</div>
+            <div id="stats" style="font-size: 12px; color: #888;">Coordinates: X: 0, Z: 0</div>
         </div>
 
         <div class="workspace">
             <div class="view-panel">
-                <div class="panel-label">🛠️ لوحة التحرير والرسم ثنائية الأبعاد (2D Plan View)</div>
+                <div class="panel-label">2D Grid Paint Canvas</div>
                 <div id="canvas-container">
-                    <canvas id="editor-canvas" width="600" height="600"></canvas>
+                    <canvas id="editor-canvas" width="512" height="512"></canvas>
                 </div>
             </div>
             
             <div class="view-panel" id="three-container">
-                <div class="panel-label">👁️ عين حية ثلاثية الأبعاد للعرض فقط (3D Live Preview)</div>
-                <div class="instructions"></div>
+                <div class="panel-label">3D Real-time Live View</div>
+                <div class="instructions">
+                    • Left Click & Drag on 2D Grid to Draw.<br>
+                    • Use Mouse on 3D View to rotate/zoom around your build.
+                </div>
             </div>
         </div>
     </div>
 
-<script>
-    // --- 1. إعدادات الخريطة والكتل ---
-    let MAP_SIZE = 50; 
-    const bloxdBlocks = [
-        { id: 4, name: "Grass Block", color: 0x556b2f, hexStr: "#556b2f" },
-        { id: 2, name: "Dirt", color: 0x8b5a2b, hexStr: "#8b5a2b" },
-        { id: 3, name: "Messy Dirt", color: 0x5c4033, hexStr: "#5c4033" },
-        { id: 5, name: "Sand", color: 0xeedc82, hexStr: "#eedc82" },
-        { id: 6, name: "Clay", color: 0xb0c4de, hexStr: "#b0c4de" },
-        { id: 7, name: "Gravel", color: 0x808080, hexStr: "#808080" },
-        { id: 8, name: "Snow", color: 0xffffff, hexStr: "#ffffff" },
-        { id: 9, name: "Maple Log", color: 0xde2a2a, hexStr: "#de2a2a" },
-        { id: 10, name: "Pine Log", color: 0x2b4f1f, hexStr: "#2b4f1f" },
-        { id: 24, name: "Stone", color: 0x777777, hexStr: "#777777" },
-        { id: 29, name: "Gold Ore", color: 0xffd700, hexStr: "#ffd700" },
-        { id: 30, name: "Iron Ore", color: 0xd3d3d3, hexStr: "#d3d3d3" }
-    ];
-
-    let selectedBlockId = 4;
-    let activeTool = 'manual';
-    let currentLayerY = 10;
-    
-    let voxels = {}; 
-    let voxelMeshes = {};
-    let undoStack = [];
-    let redoStack = [];
-
-    // إعدادات الـ Canvas
-    const canvas = document.getElementById('editor-canvas');
-    const ctx = canvas.getContext('2d');
-    let cellSize = canvas.width / MAP_SIZE;
-
-    // --- 2. بناء واجهة اختيار البلوكات ---
-    const selectorEl = document.getElementById('block-selector');
-    bloxdBlocks.forEach(block => {
-        const item = document.createElement('div');
-        item.className = `block-item ${block.id === selectedBlockId ? 'active' : ''}`;
-        item.innerText = block.name;
-        item.style.borderTop = `4px solid ${block.hexStr}`;
-        item.onclick = () => {
-            document.querySelectorAll('.block-item').forEach(el => el.classList.remove('active'));
-            item.classList.add('active');
-            selectedBlockId = block.id;
-        };
-        selectorEl.appendChild(item);
-    });
-
-    function selectTool(toolName) {
-        activeTool = toolName;
-        document.querySelectorAll('.tool-btn').forEach(btn => btn.classList.remove('active'));
-        document.getElementById(`tool-${toolName}`).classList.add('active');
-
-        const brushSettings = document.getElementById('brush-settings');
-        const flattenGroup = document.getElementById('flatten-height-group');
-        
-        if (toolName === 'raise' || toolName === 'lower' || toolName === 'flatten') {
-            brushSettings.style.display = 'flex';
-            flattenGroup.style.display = (toolName === 'flatten') ? 'flex' : 'none';
-        } else {
-            brushSettings.style.display = 'none';
-        }
-        draw2DGrid();
-    }
-
-    function changeLayer(val) {
-        currentLayerY = parseInt(val);
-        document.getElementById('current-layer-val').innerText = val;
-        draw2DGrid();
-        update3DLayerVisual();
-    }
-
-    // --- 3. إعداد محرك Three.js (للعرض فقط) ---
-    const threeContainer = document.getElementById('three-container');
-    const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x0a0a0c);
-
-    const camera = new THREE.PerspectiveCamera(45, threeContainer.clientWidth / (threeContainer.clientHeight - 30), 1, 1000);
-    camera.position.set(MAP_SIZE * 1.2, MAP_SIZE * 0.8, MAP_SIZE * 1.2);
-
-    const renderer = new THREE.WebGLRenderer({ antialias: true });
-    renderer.setSize(threeContainer.clientWidth, threeContainer.clientHeight - 30);
-    threeContainer.appendChild(renderer.domElement);
-
-    const controls = new THREE.OrbitControls(camera, renderer.domElement);
-    controls.target.set(MAP_SIZE / 2, MAP_SIZE / 4, MAP_SIZE / 2);
-    controls.update();
-
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
-    scene.add(ambientLight);
-    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.5);
-    directionalLight.position.set(MAP_SIZE, MAP_SIZE * 2, MAP_SIZE);
-    scene.add(directionalLight);
-
-    let gridHelper;
-    function setup3DGrid() {
-        if (gridHelper) scene.remove(gridHelper);
-        gridHelper = new THREE.GridHelper(MAP_SIZE, MAP_SIZE, 0x00adb5, 0x333333);
-        gridHelper.position.set(MAP_SIZE/2 - 0.5, -0.5, MAP_SIZE/2 - 0.5);
-        scene.add(gridHelper);
-    }
-    setup3DGrid();
-
-    const geometry = new THREE.BoxGeometry(1, 1, 1);
-
-    // مؤشر شفاف يعبر عن الطبقة الأفقية النشطة بالـ 3D
-    const layerVisualGeo = new THREE.PlaneGeometry(MAP_SIZE, MAP_SIZE);
-    const layerVisualMat = new THREE.MeshBasicMaterial({ color: 0x00adb5, side: THREE.DoubleSide, transparent: true, opacity: 0.08 });
-    const layerVisualMesh = new THREE.Mesh(layerVisualGeo, layerVisualMat);
-    layerVisualMesh.rotation.x = Math.PI / 2;
-    layerVisualMesh.position.set(MAP_SIZE/2 - 0.5, currentLayerY, MAP_SIZE/2 - 0.5);
-    scene.add(layerVisualMesh);
-
-    function update3DLayerVisual() {
-        layerVisualMesh.position.y = currentLayerY;
-    }
-
-    function getBlockColor(id) {
-        const b = bloxdBlocks.find(x => x.id === id);
-        return b ? b.color : 0xaaaaaa;
-    }
-
-    function getBlockHexStr(id) {
-        const b = bloxdBlocks.find(x => x.id === id);
-        return b ? b.hexStr : "#aaaaaa";
-    }
-
-    // --- 4. إدارة فوكسل (Voxel Core) ---
-    function addVoxel(x, y, z, blockId, updateViews = true) {
-        if(x < 0 || x >= MAP_SIZE || y < 0 || y >= MAP_SIZE || z < 0 || z >= MAP_SIZE) return;
-        const key = `${x},${y},${z}`;
-        
-        if (voxels[key] === blockId) return;
-        if (voxels[key]) removeVoxel(x, y, z, false);
-
-        voxels[key] = blockId;
-        
-        const material = new THREE.MeshLambertMaterial({ color: getBlockColor(blockId) });
-        const mesh = new THREE.Mesh(geometry, material);
-        mesh.position.set(x, y, z);
-        scene.add(mesh);
-        voxelMeshes[key] = mesh;
-
-        if (updateViews) {
-            updateStats();
-            draw2DGrid();
-        }
-    }
-
-    function removeVoxel(x, y, z, updateViews = true) {
-        const key = `${x},${y},${z}`;
-        if (voxels[key]) {
-            scene.remove(voxelMeshes[key]);
-            delete voxels[key];
-            delete voxelMeshes[key];
-            
-            if (updateViews) {
-                updateStats();
-                draw2DGrid();
-            }
-        }
-    }
-
-    function getTopY(x, z) {
-        let topY = -1;
-        for (let y = 0; y < MAP_SIZE; y++) {
-            if (voxels[`${x},${y},${z}`]) topY = y;
-        }
-        return topY;
-    }
-
-    function updateStats() {
-        document.getElementById('stats').innerText = `عدد الكتل الحالية: ${Object.keys(voxels).length}`;
-    }
-
-    // --- 5. الرسم وتحديث لوحة الـ 2D Canvas ---
-    function draw2DGrid() {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        
-        // رسم المكعبات المتواجدة في الطبقة الحالية Y
-        for (let x = 0; x < MAP_SIZE; x++) {
-            for (let z = 0; z < MAP_SIZE; z++) {
-                const key = `${x},${currentLayerY},${z}`;
-                if (voxels[key]) {
-                    ctx.fillStyle = getBlockHexStr(voxels[key]);
-                    ctx.fillRect(x * cellSize, z * cellSize, cellSize, cellSize);
-                } else {
-                    // إعطاء تلميح ظل خفيف إذا كان هناك بلوك بالأسفل مباشرة للمساعدة في التخيل التضاريسي
-                    const lowerKey = `${x},${currentLayerY - 1},${z}`;
-                    if (currentLayerY > 0 && voxels[lowerKey]) {
-                        ctx.fillStyle = "rgba(40, 40, 45, 0.4)";
-                        ctx.fillRect(x * cellSize, z * cellSize, cellSize, cellSize);
-                    }
-                }
-            }
-        }
-
-        // رسم خطوط الشبكة الإرشادية للـ Canvas
-        ctx.strokeStyle = "#222225";
-        ctx.lineWidth = 0.5;
-        for (let i = 0; i <= MAP_SIZE; i++) {
-            ctx.beginPath();
-            ctx.moveTo(i * cellSize, 0);
-            ctx.lineTo(i * cellSize, canvas.height);
-            ctx.stroke();
-
-            ctx.beginPath();
-            ctx.moveTo(0, i * cellSize);
-            ctx.lineTo(canvas.width, i * cellSize);
-            ctx.stroke();
-        }
-    }
-
-    // --- 6. التقاط أحداث الفرشاة والماوس على الـ Canvas ---
-    let isDrawing = false;
-    let drawButton = -1;
-
-    canvas.addEventListener('contextmenu', e => e.preventDefault());
-
-    canvas.addEventListener('mousedown', (e) => {
-        isDrawing = true;
-        drawButton = e.button;
-        saveStateToHistory();
-        handleCanvasInteraction(e);
-    });
-
-    canvas.addEventListener('mousemove', (e) => {
-        if (!isDrawing) return;
-        handleCanvasInteraction(e);
-    });
-
-    window.addEventListener('mouseup', () => {
-        isDrawing = false;
-        drawButton = -1;
-    });
-
-    function handleCanvasInteraction(e) {
-        const rect = canvas.getBoundingClientRect();
-        const mouseX = e.clientX - rect.left;
-        const mouseY = e.clientY - rect.top;
-        
-        const cellX = Math.floor(mouseX / cellSize);
-        const cellZ = Math.floor(mouseY / cellSize);
-        
-        if (cellX < 0 || cellX >= MAP_SIZE || cellZ < 0 || cellZ >= MAP_SIZE) return;
-
-        if (activeTool === 'manual') {
-            if (drawButton === 0) { // كليك أيسر: وضع بلوك
-                addVoxel(cellX, currentLayerY, cellZ, selectedBlockId);
-            } else if (drawButton === 2) { // كليك أيمن: مسح البلوك
-                removeVoxel(cellX, currentLayerY, cellZ);
-            }
-        } else {
-            // تنفيذ الأدوات التضاريسية المعتمدة على الفرشاة
-            if (drawButton === 0) { 
-                applyBrushTool(cellX, cellZ, activeTool);
-            }
-        }
-    }
-
-    function applyBrushTool(centerX, centerZ, toolType) {
-        const size = parseInt(document.getElementById('brush-size').value);
-        const intensity = parseInt(document.getElementById('brush-intensity').value);
-        const targetFlattenHeight = parseInt(document.getElementById('flatten-height').value);
-
-        for (let x = centerX - size; x <= centerX + size; x++) {
-            for (let z = centerZ - size; z <= centerZ + size; z++) {
-                if (x < 0 || x >= MAP_SIZE || z < 0 || z >= MAP_SIZE) continue;
-
-                const dist = Math.sqrt((x - centerX)**2 + (z - centerZ)**2);
-                if (dist > size) continue;
-
-                let currentTopY = getTopY(x, z);
-
-                if (toolType === 'raise') {
-                    let newTopY = Math.min(MAP_SIZE - 1, currentTopY + intensity);
-                    let startY = Math.max(0, currentTopY + 1);
-                    for (let y = startY; y <= newTopY; y++) {
-                        addVoxel(x, y, z, selectedBlockId, false);
-                    }
-                } 
-                else if (toolType === 'lower') {
-                    if (currentTopY >= 0) {
-                        let targetY = Math.max(-1, currentTopY - intensity);
-                        for (let y = currentTopY; y > targetY; y--) {
-                            removeVoxel(x, y, z, false);
-                        }
-                    }
-                } 
-                else if (toolType === 'flatten') {
-                    if (currentTopY < targetFlattenHeight) {
-                        for (let y = Math.max(0, currentTopY + 1); y <= targetFlattenHeight; y++) {
-                            addVoxel(x, y, z, selectedBlockId, false);
-                        }
-                    } else if (currentTopY > targetFlattenHeight) {
-                        for (let y = currentTopY; y > targetFlattenHeight; y--) {
-                            removeVoxel(x, y, z, false);
-                        }
-                    }
-                }
-            }
-        }
-        updateStats();
-        draw2DGrid();
-    }
-
-    // --- 7. آليات التراجع والإعادة (Undo / Redo) ---
-    function getCurrentStateSnapshot() {
-        return JSON.stringify(voxels);
-    }
-
-    function loadStateSnapshot(snapshotStr) {
-        for (let key in voxels) {
-            scene.remove(voxelMeshes[key]);
-            delete voxelMeshes[key];
-        }
-        voxels = {};
-        
-        const data = JSON.parse(snapshotStr);
-        for (let key in data) {
-            const [x, y, z] = key.split(',').map(Number);
-            const blockId = data[key];
-            voxels[key] = blockId;
-            
-            const material = new THREE.MeshLambertMaterial({ color: getBlockColor(blockId) });
-            const mesh = new THREE.Mesh(geometry, material);
-            mesh.position.set(x, y, z);
-            scene.add(mesh);
-            voxelMeshes[key] = mesh;
-        }
-        updateStats();
-        draw2DGrid();
-    }
-
-    function saveStateToHistory() {
-        undoStack.push(getCurrentStateSnapshot());
-        redoStack = []; 
-        updateHistoryButtons();
-    }
-
-    function undo() {
-        if (undoStack.length === 0) return;
-        redoStack.push(getCurrentStateSnapshot());
-        const previousState = undoStack.pop();
-        loadStateSnapshot(previousState);
-        updateHistoryButtons();
-    }
-
-    function redo() {
-        if (redoStack.length === 0) return;
-        undoStack.push(getCurrentStateSnapshot());
-        const nextState = redoStack.pop();
-        loadStateSnapshot(nextState);
-        updateHistoryButtons();
-    }
-
-    function updateHistoryButtons() {
-        document.getElementById('btn-undo').disabled = (undoStack.length === 0);
-        document.getElementById('btn-redo').disabled = (redoStack.length === 0);
-    }
-
-    // --- 8. توليد وتنظيف التضاريس النشطة ---
-    function generateBeautifulTerrain() {
-        saveStateToHistory();
-        for (let key in voxels) { scene.remove(voxelMeshes[key]); }
-        voxels = {};
-        voxelMeshes = {};
-
-        for (let x = 0; x < MAP_SIZE; x++) {
-            for (let z = 0; z < MAP_SIZE; z++) {
-                let height = Math.sin(x * 0.1) * Math.cos(z * 0.1) * 5 + 12;
-                height = Math.floor(height);
-
-                for (let y = 0; y <= height; y++) {
-                    let blockToPlace = 24; 
-                    if (y === height) blockToPlace = 4; 
-                    else if (y > height - 3) blockToPlace = 2; 
-
-                    addVoxel(x, y, z, blockToPlace, false);
-                }
-            }
-        }
-        updateStats();
-        draw2DGrid();
-    }
-
-    function clearMapWithHistory() {
-        saveStateToHistory();
-        for (let key in voxels) { scene.remove(voxelMeshes[key]); }
-        voxels = {};
-        voxelMeshes = {};
-        updateStats();
-        draw2DGrid();
-    }
-
-    // --- 9. الاستيراد والتصدير الديناميكي (.bloxdschem) ---
-    function exportSchematic() {
-        const encoder = new TextEncoder();
-        const zip = new JSZip();
-
-        // الترويسة برقم الأبعاد الجديد
-        const headerStr = `BloxdSchematicV4\n${MAP_SIZE}\n${MAP_SIZE}\n${MAP_SIZE}\n`;
-        const headerBytes = encoder.encode(headerStr);
-
-        const voxelBytes = new Uint8Array(MAP_SIZE * MAP_SIZE * MAP_SIZE * 2);
-        let byteIndex = 0;
-
-        for (let x = 0; x < MAP_SIZE; x++) {
-            for (let y = 0; y < MAP_SIZE; y++) {
-                for (let z = 0; z < MAP_SIZE; z++) {
-                    const key = `${x},${y},${z}`;
-                    const blockId = voxels[key] || 0; 
-
-                    voxelBytes[byteIndex++] = blockId; 
-                    voxelBytes[byteIndex++] = y; 
-                }
-            }
-        }
-
-        const footerStr = '\n{"persisted":{"planterDbId":"5I3dLhZLF44gX78T4cEUT"}}';
-        const footerBytes = encoder.encode(footerStr);
-
-        const finalOutBuffer = new Uint8Array(headerBytes.length + voxelBytes.length + footerBytes.length);
-        finalOutBuffer.set(headerBytes, 0);
-        finalOutBuffer.set(voxelBytes, headerBytes.length);
-        finalOutBuffer.set(footerBytes, headerBytes.length + voxelBytes.length);
-
-        zip.file("Bcr Islando.bloxdschem", finalOutBuffer.buffer);
-        zip.generateAsync({type:"blob"}).then(function(content) {
-            const element = document.createElement("a");
-            element.href = URL.createObjectURL(content);
-            element.download = `Bloxd_Map_${MAP_SIZE}x${MAP_SIZE}.bloxdschem`;
-            element.click();
-        });
-    }
-
-    function importSchematic(event) {
-        const file = event.target.files[0];
-        if (!file) return;
-
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            JSZip.loadAsync(e.target.result).then(function(zip) {
-                // العثور على أي ملف ينتهي باللاحقة داخل الـ ZIP
-                const schematicFile = Object.keys(zip.files).find(name => name.endsWith('.bloxdschem'));
-                if (!schematicFile) {
-                    alert('ملف غير صالح لمحرر التضاريس');
-                    return;
-                }
-
-                zip.file(schematicFile).async("uint8array").then(function(bytes) {
-                    parseAndLoadSchematic(bytes);
-                });
-            });
-        };
-        reader.readAsArrayBuffer(file);
-    }
-
-    function parseAndLoadSchematic(bytes) {
-        saveStateToHistory();
-        
-        // تفريغ المشهد بالكامل
-        for (let key in voxels) { scene.remove(voxelMeshes[key]); }
-        voxels = {};
-        voxelMeshes = {};
-
-        const decoder = new TextDecoder();
-        let textPart = decoder.decode(bytes.subarray(0, 200)); 
-        let lines = textPart.split('\n');
-
-        if (!lines[0].startsWith("BloxdSchematic")) {
-            alert("تنسيق الملف غير مدعوم من نظام اللعبة الرسمي!");
-            return;
-        }
-
-        // قراءة وحقن الأبعاد ديناميكياً بناءً على ترويسة الملف المستورد
-        const importedW = parseInt(lines[1]);
-        const importedH = parseInt(lines[2]);
-        const importedD = parseInt(lines[3]);
-
-        MAP_SIZE = importedW; 
-        cellSize = canvas.width / MAP_SIZE;
-        
-        // تعديل عناصر التحكم لتتناسب مع المقاييس الجديدة
-        document.getElementById('current-layer').max = MAP_SIZE - 1;
-        document.getElementById('flatten-height').max = MAP_SIZE - 1;
-        setup3DGrid();
-
-        // العثور على نقطة بداية بايتات الفوكسل الثنائية
-        let headerStringFull = `${lines[0]}\n${lines[1]}\n${lines[2]}\n${lines[3]}\n`;
-        let headerLength = new TextEncoder().encode(headerStringFull).length;
-
-        let byteIndex = headerLength;
-
-        for (let x = 0; x < MAP_SIZE; x++) {
-            for (let y = 0; y < MAP_SIZE; y++) {
-                for (let z = 0; z < MAP_SIZE; z++) {
-                    if (byteIndex + 1 >= bytes.length) break;
-                    
-                    const blockId = bytes[byteIndex++];
-                    const savedY = bytes[byteIndex++]; 
-
-                    if (blockId !== 0) {
-                        // استخدام savedY لضمان مطابقة الارتفاعات الفردية
-                        addVoxel(x, savedY, z, blockId, false);
-                    }
-                }
-            }
-        }
-
-        updateStats();
-        changeLayer(Math.floor(MAP_SIZE / 3)); 
-        
-        // إعادة تركيز الكاميرا على الحجم الجديد
-        camera.position.set(MAP_SIZE * 1.2, MAP_SIZE * 0.8, MAP_SIZE * 1.2);
-        controls.target.set(MAP_SIZE / 2, MAP_SIZE / 4, MAP_SIZE / 2);
-        controls.update();
-        
-        alert(`تم استيراد الخريطة بنجاح بأبعاد: ${MAP_SIZE}x${MAP_SIZE}x${MAP_SIZE}`);
-    }
-
-    // --- 10. تشغيل البيئة والتحديث المستمر ---
-    generateBeautifulTerrain();
-
-    window.addEventListener('resize', () => {
-        camera.aspect = threeContainer.clientWidth / (threeContainer.clientHeight - 30);
-        camera.updateProjectionMatrix();
-        renderer.setSize(threeContainer.clientWidth, threeContainer.clientHeight - 30);
-    });
-
-    function animate() {
-        requestAnimationFrame(animate);
-        controls.update();
-        renderer.render(scene, camera);
-    }
-    animate();
-</script>
-
+    <script src="editor.js"></script>
 </body>
 </html>
